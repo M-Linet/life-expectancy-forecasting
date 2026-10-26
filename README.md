@@ -104,4 +104,4 @@ jupyter lab                      # open the notebooks to read the results
 
 ## Author
 
-*Your name* · Data Science student · [LinkedIn](#) · [Email](#)
+*Linet Muthoni* · Data Science student · [linetmaina.r@gmail.com](#)
