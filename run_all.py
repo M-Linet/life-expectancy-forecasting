@@ -1,13 +1,6 @@
-"""Run the whole project in one go: download data, build datasets, run tests, execute all notebooks.
+"""Run everything: fetch data, build datasets, tests, all notebooks.
 
-Usage (from the project folder, with your virtual environment active):
-
-    python run_all.py              # everything
-    python run_all.py --refresh    # also re-download data that's already cached
-    python run_all.py --skip-fetch # reuse downloaded data, just rebuild and re-run notebooks
-
-Executed notebooks are saved in place (with all charts and outputs), and
-charts are also saved as PNGs in reports/figures/.
+    python run_all.py [--refresh | --skip-fetch]
 """
 
 import argparse

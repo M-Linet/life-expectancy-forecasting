@@ -1,22 +1,6 @@
-"""Life tables, decomposition and counterfactual scenarios.
+"""Life tables, Arriaga decomposition and counterfactual death rates.
 
-A life table turns age-specific death rates (nMx) into life expectancy. Once we
-can do that, we can ask demographic questions directly:
-
-* **Decomposition (Arriaga, 1984):** which age groups were responsible for a
-  change in life expectancy between two years? The age contributions add up
-  exactly to the total change.
-* **Counterfactuals:** what would life expectancy be if death rates at certain
-  ages were lower, for example if a country met an SDG target?
-
-References
-----------
-Preston, Heuveline & Guillot (2001). *Demography: Measuring and Modeling
-Population Processes*. Blackwell. (life table construction, a-values)
-Arriaga (1984). Measuring and explaining the change in life expectancies.
-*Demography* 21(1):83-96.
-Andreev & Kingkade (2015). Average age at death in infancy and infant mortality
-level. *Demographic Research* 33:363-390. (a0 formulas)
+Refs: Preston et al. (2001); Arriaga (1984); Andreev & Kingkade (2015) for a0.
 """
 
 from __future__ import annotations
@@ -29,12 +13,8 @@ import pandas as pd
 from src.config import AGE_BANDS
 
 
-# --- Age codes -----------------------------------------------------------------
 def parse_age_code(code: str) -> tuple[float, float]:
-    """Convert a WHO age-group code to (start, width). Open-ended groups get width inf.
-
-    Handles forms such as AGELT1, AGE1-4, AGE5-9, AGE85PLUS, YEARS100PLUS, AGE100+.
-    """
+    """WHO age code -> (start, width). e.g. AGE5-9 -> (5, 5), AGE85PLUS -> (85, inf)"""
     text = str(code).upper()
     numbers = [int(n) for n in re.findall(r"\d+", text)]
     if "LT1" in text or text.endswith("LT01") or numbers == [0, 1] or numbers == [0, 0]:
@@ -46,7 +26,6 @@ def parse_age_code(code: str) -> tuple[float, float]:
     raise ValueError(f"Unrecognised age code: {code!r}")
 
 
-# --- Life table ---------------------------------------------------------------
 def _a0(m0: float, sex: str) -> float:
     """Average years lived in the first year by infants who die (Andreev-Kingkade 2015)."""
     def male(m):
@@ -70,15 +49,7 @@ def _a1(m0: float, sex: str) -> float:
 
 
 def life_table(age: np.ndarray, width: np.ndarray, mx: np.ndarray, sex: str = "both") -> pd.DataFrame:
-    """Build an abridged period life table from age-specific death rates.
-
-    Parameters
-    ----------
-    age   : start of each age group, increasing, starting at 0
-    width : width of each group; the last (open) group must be np.inf
-    mx    : death rate in each group (deaths per person-year)
-    sex   : "male", "female" or "both" (only affects the infant/child a-values)
-    """
+    """Abridged period life table from age-specific death rates. Last age group must be open (width inf)."""
     age, n, m = (np.asarray(x, dtype=float) for x in (age, width, mx))
     if age[0] != 0 or not np.isinf(n[-1]):
         raise ValueError("Ages must start at 0 and the last group must be open-ended")
@@ -117,13 +88,8 @@ def probability_of_dying(table: pd.DataFrame, start: float, end: float) -> float
     return 1 - l_end / l_start
 
 
-# --- Decomposition ----------------------------------------------------------
 def arriaga(table1: pd.DataFrame, table2: pd.DataFrame) -> pd.Series:
-    """Contribution of each age group to the change in e0 from table1 to table2.
-
-    Positive values mean falling mortality at that age added years of life.
-    The contributions sum exactly to e0(table2) - e0(table1).
-    """
+    """Arriaga (1984) age contributions to the change in e0 between two tables. Sums to the total change."""
     l1, l2 = table1["lx"].to_numpy(), table2["lx"].to_numpy()
     L1, L2 = table1["Lx"].to_numpy(), table2["Lx"].to_numpy()
     T1, T2 = table1["Tx"].to_numpy(), table2["Tx"].to_numpy()
@@ -146,12 +112,8 @@ def to_bands(contributions: pd.Series, bands=AGE_BANDS) -> pd.Series:
     return pd.Series(out)
 
 
-# --- Counterfactual scenarios -------------------------------------------------
 def scale_child_mortality_to_target(table: pd.DataFrame, target_5q0: float) -> np.ndarray:
-    """Death rates with ages 0-4 scaled down (proportionally) until 5q0 equals the target.
-
-    Returns the original rates unchanged if the country already meets the target.
-    """
+    """Scale ages 0-4 death rates down until 5q0 hits the target (no change if already below)."""
     mx = table["mx"].to_numpy().copy()
     ages, widths = table["age"].to_numpy(), table["n"].to_numpy()
     if probability_of_dying(table, 0, 5) <= target_5q0:
@@ -170,11 +132,7 @@ def scale_child_mortality_to_target(table: pd.DataFrame, target_5q0: float) -> n
 
 def reduce_mortality_share(table: pd.DataFrame, start: float, end: float, hazard_share: float,
                            reduction: float) -> np.ndarray:
-    """Death rates with one cause group's share of mortality at ages [start, end) cut by `reduction`.
-
-    Example: NCDs make up 60% of the death rate at 30-69 (hazard_share=0.6) and the SDG
-    target cuts NCD mortality by a third (reduction=1/3), so rates there fall by 20%.
-    """
+    """Cut one cause's share of the death rate at ages [start, end) by `reduction`."""
     mx = table["mx"].to_numpy().copy()
     mask = (table["age"].to_numpy() >= start) & (table["age"].to_numpy() < end)
     mx[mask] *= 1 - float(np.clip(hazard_share, 0, 1)) * reduction
@@ -182,11 +140,7 @@ def reduce_mortality_share(table: pd.DataFrame, start: float, end: float, hazard
 
 
 def hazard_share(p_cause: float, p_all: float) -> float:
-    """Share of the all-cause death rate due to one cause group, from two probabilities of dying.
-
-    Probabilities don't add up across causes, but under competing risks the
-    underlying rates do: share = ln(1 - p_cause) / ln(1 - p_all).
-    """
+    """Cause share of the all-cause hazard from two probabilities of dying (competing risks)."""
     if not (0 < p_cause < 1 and 0 < p_all < 1):
         return np.nan
     return float(np.clip(np.log(1 - p_cause) / np.log(1 - p_all), 0, 1))

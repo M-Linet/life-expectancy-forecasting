@@ -1,21 +1,4 @@
-"""Forecasting life expectancy: simple baselines, a pooled convergence model, backtesting and intervals.
-
-Design choices, and why:
-
-* **Baselines first.** Life expectancy changes slowly and smoothly, so naive and
-  trend models are hard to beat. Any fancier model must prove itself against them.
-* **A pooled "convergence" model.** Countries with lower life expectancy tend to
-  gain faster, and gains slow as life expectancy rises. Official UN projections
-  build on this idea (with Bayesian hierarchical models). Here, one gradient-boosting
-  model learns next-year gain from current level, recent gains, region and sex
-  across ALL countries, so countries with short or noisy histories borrow strength
-  from similar ones.
-* **Honest uncertainty.** Prediction intervals come from the model's actual errors
-  in rolling backtests (how wrong it really was, h years ahead), not from
-  textbook formulas that assume the model is correct.
-* **Shocks are scenarios, not noise.** COVID-19 shows that the biggest risk to a
-  forecast is a shock no model sees coming. We handle that with explicit scenarios.
-"""
+"""Baseline forecasts, pooled convergence model, rolling backtests, intervals and scenarios."""
 
 from __future__ import annotations
 
@@ -25,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 
-# --- Data shaping -----------------------------------------------------------------
 def series_by_country(panel: pd.DataFrame, value: str = "life_expectancy",
                       sexes=("both", "female", "male")) -> tuple[dict, pd.DataFrame]:
     """Return {(iso3, sex): Series indexed by year} and a metadata table indexed the same way."""
@@ -36,7 +18,6 @@ def series_by_country(panel: pd.DataFrame, value: str = "life_expectancy",
     return series, meta
 
 
-# --- Baseline methods -------------------------------------------------------------
 def _slope(hist: np.ndarray, window: int) -> float:
     w = min(window, len(hist) - 1)
     return (hist[-1] - hist[-1 - w]) / w if w > 0 else 0.0
@@ -55,9 +36,6 @@ def drift(hist: np.ndarray, h: int, window: int = 10) -> np.ndarray:
 def damped(hist: np.ndarray, h: int, window: int = 10, phi: float = 0.9) -> np.ndarray:
     """Like drift, but the annual gain shrinks by a factor phi each year (gains slow down)."""
     return hist[-1] + _slope(hist, window) * np.cumsum(phi ** np.arange(1, h + 1))
-
-
-# --- Pooled convergence model ----------------------------------------------------------
 @dataclass
 class ConvergenceModel:
     gain_window: int = 5
@@ -124,13 +102,8 @@ def forecast_all(series: dict, meta: pd.DataFrame, origin: int, h: int, conv: Co
     return pd.concat(rows, ignore_index=True)
 
 
-# --- Backtesting ----------------------------------------------------------------
 def backtest(series: dict, meta: pd.DataFrame, origins: list[int], horizon: int, last_valid_year: int) -> pd.DataFrame:
-    """Rolling-origin evaluation: pretend it's year `origin`, forecast, compare with what happened.
-
-    Only years up to `last_valid_year` are scored, so the COVID shock doesn't
-    count against models that had no way to foresee it.
-    """
+    """Rolling-origin backtest, scoring only years up to last_valid_year."""
     results = []
     for origin in origins:
         h = min(horizon, last_valid_year - origin)
@@ -154,7 +127,6 @@ def error_summary(bt: pd.DataFrame) -> pd.DataFrame:
     return mae.sort_values("MAE overall")
 
 
-# --- Prediction intervals ----------------------------------------------------------
 def empirical_intervals(bt: pd.DataFrame, method: str, max_h: int, levels=(0.8, 0.95)) -> pd.DataFrame:
     """Error quantiles by horizon from the backtest. Beyond the tested horizon, widen with sqrt(h)."""
     e = bt[bt["method"] == method]
@@ -167,21 +139,15 @@ def empirical_intervals(bt: pd.DataFrame, method: str, max_h: int, levels=(0.8, 
         row = {"h": h}
         for lvl in levels:
             a = (1 - lvl) / 2
-            # forecast - actual = error, so actual = forecast - error
+            # error = forecast - actual
             row[f"lo{int(lvl * 100)}"] = -errs.quantile(1 - a) * scale
             row[f"hi{int(lvl * 100)}"] = -errs.quantile(a) * scale
         rows.append(row)
     return pd.DataFrame(rows).set_index("h")
 
 
-# --- Scenarios ----------------------------------------------------------------------------
 def build_scenarios(fc: pd.DataFrame, series: dict, intervals: pd.DataFrame, launch: int) -> pd.DataFrame:
-    """Turn a baseline forecast (launched before COVID) into three scenarios with intervals.
-
-    * trend:      progress resumes as if the shock had not happened (full recovery)
-    * persistent: the latest observed shortfall versus trend is never recovered
-    * stalled:    the pace of gains halves (e.g. aid cuts, weaker health systems)
-    """
+    """Add trend / persistent shortfall / stalled scenarios and intervals to a forecast."""
     out = fc.copy()
     launch_value = out.apply(lambda r: series[(r["iso3"], r["sex"])].get(launch, np.nan), axis=1)
     out = out.join(intervals, on="h")

@@ -1,12 +1,7 @@
-"""Project-wide settings: paths, data sources and indicator codes.
-
-Keeping every indicator code in one place makes the project easy to audit:
-anyone reviewing the work can see exactly which official series are used.
-"""
+"""Paths, API endpoints and indicator codes."""
 
 from pathlib import Path
 
-# --- Paths -------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
@@ -14,26 +9,19 @@ PROCESSED_DIR = DATA_DIR / "processed"
 FIGURES_DIR = PROJECT_ROOT / "reports" / "figures"
 
 PANEL_PATH = PROCESSED_DIR / "life_expectancy_panel.csv"
-
-# --- API endpoints -----------------------------------------------------------
 GHO_API = "https://ghoapi.azureedge.net/api"
 WORLD_BANK_API = "https://api.worldbank.org/v2"
 
-# Years requested from the World Bank (WHO returns everything it has).
 START_YEAR = 1990
 END_YEAR = 2025
 
-# --- WHO Global Health Observatory indicators (outcomes) ---------------------
 # Both are published by sex: both sexes, female, male.
 GHO_INDICATORS = {
     "WHOSIS_000001": "life_expectancy",  # Life expectancy at birth (years)
     "WHOSIS_000002": "hale",             # Healthy life expectancy (HALE) at birth (years)
 }
 
-# --- World Bank indicators (explanatory variables) ---------------------------
-# Deliberately excluded: under-5 / adult mortality. Life expectancy is
-# calculated FROM mortality rates, so using them as predictors would leak the
-# answer into the model and make the "drivers" analysis meaningless.
+# no mortality rates here: LE is calculated from them (leakage)
 WB_INDICATORS = {
     "NY.GDP.PCAP.PP.KD": "gdp_pc_ppp",            # GDP per capita, PPP (constant intl $)
     "SH.XPD.CHEX.GD.ZS": "health_exp_pct_gdp",    # Current health expenditure (% of GDP)
@@ -49,10 +37,7 @@ WB_INDICATORS = {
     "SP.POP.TOTL": "population",                  # Population, total (used for weighting)
 }
 
-# --- World Bank mortality and cause-related indicators ------------------------
-# These describe HOW people die. They are used to explain changes in life
-# expectancy (notebook 02) and in prevention scenarios (notebook 04), never as
-# predictors in the drivers model, for the leakage reason above.
+# used in notebooks 02 and 04 only, never as predictors
 WB_MORTALITY = {
     "SH.DYN.MORT": "u5_mortality",                # Under-5 mortality rate (per 1,000 live births)
     "SH.DYN.NMRT": "neonatal_mortality",          # Neonatal mortality rate (per 1,000 live births)
@@ -70,19 +55,14 @@ WB_MORTALITY = {
     "SH.DTH.INJR.ZS": "deaths_injury_pct",        # Injuries (% of deaths)
 }
 
-# --- WHO life tables ------------------------------------------------------------
-# Age-specific death rates (nMx) by country, year and sex. The GHO API code for
-# this series isn't stable in WHO's documentation, so we look it up from WHO's
-# indicator catalogue by name and record which code was used.
+# nMx by country, year, sex. Code looked up from the GHO catalogue by name.
 LIFE_TABLE_NAME_PATTERN = r"^\s*nMx\b"
 LIFE_TABLES_PATH = PROCESSED_DIR / "life_tables.csv"
 
-# Reporting age bands used in the decomposition charts.
 AGE_BANDS = [(0, 1, "Infants (<1)"), (1, 5, "Children 1-4"), (5, 15, "5-14"), (15, 30, "15-29"),
              (30, 50, "30-49"), (50, 70, "50-69"), (70, 200, "70+")]
 
-# WHO codes for sex in the GHO "Dim1" field. Newer data uses the SEX_ prefix,
-# older documentation shows the short form, so both are accepted.
+# GHO sex codes (old and new forms)
 SEX_CODES = {
     "SEX_BTSX": "both", "BTSX": "both",
     "SEX_FMLE": "female", "FMLE": "female",

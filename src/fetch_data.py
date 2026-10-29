@@ -1,12 +1,6 @@
-"""Download raw data from the WHO GHO and World Bank APIs.
+"""Download raw data from the WHO GHO and World Bank APIs into data/raw/.
 
-Run from the project root:
-
-    python -m src.fetch_data            # download anything not already cached
-    python -m src.fetch_data --refresh  # re-download everything
-
-Raw responses are saved unchanged (apart from flattening to CSV) in data/raw/,
-so every later step can be reproduced without hitting the APIs again.
+Run: python -m src.fetch_data [--refresh]
 """
 
 from __future__ import annotations
@@ -37,7 +31,6 @@ TIMEOUT = 60  # seconds
 RETRIES = 3
 
 
-# --- HTTP helper -------------------------------------------------------------
 def get_json(url: str, params: dict | None = None, session: requests.Session | None = None):
     """GET a URL and return parsed JSON, retrying on temporary failures."""
     http = session or requests
@@ -54,7 +47,6 @@ def get_json(url: str, params: dict | None = None, session: requests.Session | N
             time.sleep(wait)
 
 
-# --- WHO Global Health Observatory -------------------------------------------
 def parse_gho(records: list[dict], indicator_code: str) -> pd.DataFrame:
     """Turn GHO OData records into a tidy table: one row per country, year and sex."""
     df = pd.DataFrame(records)
@@ -155,7 +147,6 @@ def fetch_life_table(session=None) -> pd.DataFrame:
     return parse_gho_life_table(get_gho_records(f"{GHO_API}/{code}", session), code)
 
 
-# --- World Bank ----------------------------------------------------------------
 def parse_wb_indicator(rows: list[dict], indicator_code: str) -> pd.DataFrame:
     """Turn World Bank API rows into a tidy table: one row per country and year."""
     df = pd.DataFrame({
@@ -166,7 +157,7 @@ def parse_wb_indicator(rows: list[dict], indicator_code: str) -> pd.DataFrame:
     df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df["indicator"] = indicator_code
-    # Aggregates such as "Sub-Saharan Africa" have no ISO3 code here; drop them.
+    # aggregates have no iso3
     df = df[df["iso3"].fillna("").str.len() == 3]
     return df.dropna(subset=["year"]).reset_index(drop=True)
 
@@ -205,7 +196,6 @@ def fetch_wb_countries(session=None) -> pd.DataFrame:
     return parse_wb_countries(payload[1])
 
 
-# --- Orchestration -----------------------------------------------------------
 def _save(df: pd.DataFrame, name: str) -> None:
     path = RAW_DIR / f"{name}.csv"
     df.to_csv(path, index=False)

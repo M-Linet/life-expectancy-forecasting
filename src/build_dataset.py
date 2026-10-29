@@ -1,13 +1,4 @@
-"""Merge the raw WHO and World Bank files into one analysis-ready panel.
-
-Run from the project root after fetching:
-
-    python -m src.build_dataset
-
-Output: data/processed/life_expectancy_panel.csv with one row per
-country x year x sex. Outcome columns come from WHO; explanatory variables from
-the World Bank are country-level, so they repeat across the three sex rows.
-"""
+"""Merge raw WHO + World Bank files into data/processed/. Run: python -m src.build_dataset"""
 
 from __future__ import annotations
 
@@ -19,6 +10,7 @@ import pandas as pd
 from src.config import (
     GHO_INDICATORS, LIFE_TABLES_PATH, PANEL_PATH, PROCESSED_DIR, RAW_DIR, WB_INDICATORS, WB_MORTALITY,
 )
+
 from src.lifetable import parse_age_code
 
 log = logging.getLogger(__name__)
@@ -38,11 +30,11 @@ def load_outcomes() -> pd.DataFrame:
     for df in frames[1:]:
         out = out.merge(df.drop(columns=["who_region_code", "who_region"]), on=KEYS, how="outer")
 
-    # Region can be missing on rows that only exist in the second indicator; fill per country.
+    # fill region for rows only in the second indicator
     for col in ["who_region_code", "who_region"]:
         out[col] = out.groupby("iso3")[col].transform(lambda s: s.ffill().bfill())
 
-    # Drop bound columns WHO doesn't publish, so the panel isn't padded with empty columns.
+    # drop empty bound columns
     return out.dropna(axis=1, how="all")
 
 
@@ -71,7 +63,6 @@ def build_panel() -> pd.DataFrame:
     )
     panel["country"] = panel["country"].fillna(panel["iso3"])
 
-    # Income is right-skewed; most analyses use it on a log scale.
     if "gdp_pc_ppp" in panel:
         panel["log_gdp_pc_ppp"] = np.log(panel["gdp_pc_ppp"])
 
@@ -98,7 +89,7 @@ def build_life_tables() -> pd.DataFrame | None:
     lt = raw.join(parsed, on="age_code").rename(columns={"value": "mx"})
     lt = lt[["iso3", "year", "sex", "age", "width", "mx"]].sort_values(["iso3", "year", "sex", "age"])
 
-    # Keep only complete schedules (every age group present, starting at 0, ending open-ended).
+    # keep complete schedules only
     n_groups = lt["age"].nunique()
     sizes = lt.groupby(["iso3", "year", "sex"])["age"].transform("size")
     dropped = (sizes != n_groups).sum()

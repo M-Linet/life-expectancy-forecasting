@@ -1,8 +1,4 @@
-"""Shared chart style so every figure in the project looks consistent.
-
-Colors are a fixed, colorblind-checked categorical palette. Each WHO region
-always gets the same color in every chart, so readers never have to re-learn it.
-"""
+"""Shared chart style. Fixed colour per region so it's the same in every chart."""
 
 import matplotlib.pyplot as plt
 
@@ -22,6 +18,7 @@ REGION_COLORS = {
     "South-East Asia": PALETTE[4],
     "Western Pacific": PALETTE[5],
 }
+
 SEX_COLORS = {"female": PALETTE[0], "male": PALETTE[1], "both": INK_SECONDARY}
 
 # Sequential single-hue ramp (light -> dark blue) for heatmaps.
@@ -56,13 +53,8 @@ def set_style() -> None:
     })
 
 
-
 def stacked_contributions(ax, table, colors=None, height=0.62):
-    """Horizontal stacked bars where positive parts stack right of zero and negative parts left.
-
-    `table`: rows = entities (regions, periods...), columns = components (age bands).
-    A black tick marks each row's net total, so gains and losses net out visibly.
-    """
+    """Horizontal stacked bars, positives right of zero and negatives left, tick at the net total."""
     import numpy as np
 
     colors = colors or PALETTE
