@@ -1,4 +1,4 @@
-﻿# Life expectancy: what changed, why, and what's next
+# Life expectancy: what changed, why, and what's next
 
 ![tests](https://github.com/M-Linet/life-expectancy-forecasting/actions/workflows/tests.yml/badge.svg)
 
@@ -35,6 +35,7 @@ I wanted to understand what has actually driven changes in life expectancy since
 - The best forecasting method in backtests was a damped trend (average error 0.73 years, against 1.14 for assuming no change). Its 80% intervals contained 78% of outcomes they weren't built from, so the uncertainty ranges are about right.
 - If progress returns to its pre-COVID path, world life expectancy would reach about 75.1 by 2030 (80% range 73.3-76.8). If progress stalls at half pace it would be 74.2.
 - For Kenya: 70.2 by 2030 (68.4-71.9), or 68.6 if progress stalls.
+- These forecasts start from 2019 and assume a return to the pre-COVID path. The dashboard instead forecasts from the latest year (2023), so its numbers are a bit lower (69.2 for Kenya).
 - Africa has the most to gain and the most to lose: stalled progress would cost it 1.4 years by 2030, more than any other region.
 
 **Prevention**
@@ -45,7 +46,7 @@ I wanted to understand what has actually driven changes in life expectancy since
 
 ## Notebooks
 
-| | |
+| Notebook | What it covers |
 |---|---|
 | `01_eda` | trends, sex gap, COVID drop and recovery, HALE |
 | `02_why_it_changed` | Arriaga decomposition by age, cause-related mortality, fixed-effects drivers |
@@ -69,6 +70,13 @@ python run_all.py               # fetch data, build, test, run notebooks
 ```
 
 `python run_all.py --skip-fetch` reruns without downloading again.
+
+To run the dashboard locally:
+
+```bash
+pip install -r app/requirements.txt
+streamlit run app/streamlit_app.py
+```
 
 ## Limitations
 
