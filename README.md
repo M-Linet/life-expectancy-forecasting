@@ -2,6 +2,8 @@
 
 ![tests](https://github.com/M-Linet/life-expectancy-forecasting/actions/workflows/tests.yml/badge.svg)
 
+**[Try the interactive dashboard](https://life-expectancy-forecasting-3jhtj3bb3hdgrf2psdrj5k.streamlit.app/)**: pick any country to see its trend, 2030 outlook, and what drove the change.
+
 I wanted to understand what has actually driven changes in life expectancy since 2000, not just predict it. So this project uses WHO life tables and World Bank data for 185 countries (2000-2023) to look at which age groups drove the gains, what COVID-19 did, where life expectancy is heading by 2030, and how many years meeting the SDG health targets would add. I look at Kenya in more detail.
 
 ![Kenya: change in life expectancy by age and period](reports/figures/13_KEN_timeline.png)
